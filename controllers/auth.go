@@ -331,8 +331,6 @@ func (c *ApiController) Login() {
 		}
 
 		var user *object.User
-		var msg string
-
 		if authForm.Password == "" {
 			if user, err = object.GetUserByFields(authForm.Organization, authForm.Username); err != nil {
 				c.ResponseError(err.Error(), nil)
@@ -354,14 +352,14 @@ func (c *ApiController) Login() {
 			}
 
 			// check result through Email or Phone
-			checkResult := object.CheckSigninCode(user, checkDest, authForm.Code, c.GetAcceptLanguage())
-			if len(checkResult) != 0 {
-				c.ResponseError(fmt.Sprintf("%s - %s", verificationCodeType, checkResult))
+			err = object.CheckSigninCode(user, checkDest, authForm.Code, c.GetAcceptLanguage())
+			if err != nil {
+				c.ResponseError(fmt.Sprintf("%s - %s", verificationCodeType, err.Error()))
 				return
 			}
 
 			// disable the verification code
-			err := object.DisableVerificationCode(checkDest)
+			err = object.DisableVerificationCode(checkDest)
 			if err != nil {
 				c.ResponseError(err.Error(), nil)
 				return
@@ -399,11 +397,12 @@ func (c *ApiController) Login() {
 			}
 
 			password := authForm.Password
-			user, msg = object.CheckUserPassword(authForm.Organization, authForm.Username, password, c.GetAcceptLanguage(), enableCaptcha)
+			user, err = object.CheckUserPassword(authForm.Organization, authForm.Username, password, c.GetAcceptLanguage(), enableCaptcha)
 		}
 
-		if msg != "" {
-			resp = &Response{Status: "error", Msg: msg}
+		if err != nil {
+			c.ResponseError(err.Error())
+			return
 		} else {
 			application, err := object.GetApplication(fmt.Sprintf("admin/%s", authForm.Application))
 			if err != nil {
