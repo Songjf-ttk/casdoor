@@ -398,48 +398,48 @@ func (c *ApiController) Login() {
 
 			password := authForm.Password
 			user, err = object.CheckUserPassword(authForm.Organization, authForm.Username, password, c.GetAcceptLanguage(), enableCaptcha)
+			if err != nil {
+				c.ResponseError(err.Error())
+				return
+			}
 		}
 
+		application, err := object.GetApplication(fmt.Sprintf("admin/%s", authForm.Application))
 		if err != nil {
 			c.ResponseError(err.Error())
 			return
-		} else {
-			application, err := object.GetApplication(fmt.Sprintf("admin/%s", authForm.Application))
-			if err != nil {
-				c.ResponseError(err.Error())
-				return
-			}
-
-			if application == nil {
-				c.ResponseError(fmt.Sprintf(c.T("auth:The application: %s does not exist"), authForm.Application))
-				return
-			}
-
-			organization, err := object.GetOrganizationByUser(user)
-			if err != nil {
-				c.ResponseError(err.Error())
-			}
-
-			if object.IsNeedPromptMfa(organization, user) {
-				// The prompt page needs the user to be signed in
-				c.SetSessionUsername(user.GetId())
-				c.ResponseOk(object.RequiredMfa)
-				return
-			}
-
-			if user.IsMfaEnabled() {
-				c.setMfaUserSession(user.GetId())
-				c.ResponseOk(object.NextMfa, user.GetPreferredMfaProps(true))
-				return
-			}
-
-			resp = c.HandleLoggedIn(application, user, &authForm)
-
-			record := object.NewRecord(c.Ctx)
-			record.Organization = application.Organization
-			record.User = user.Name
-			util.SafeGoroutine(func() { object.AddRecord(record) })
 		}
+
+		if application == nil {
+			c.ResponseError(fmt.Sprintf(c.T("auth:The application: %s does not exist"), authForm.Application))
+			return
+		}
+
+		organization, err := object.GetOrganizationByUser(user)
+		if err != nil {
+			c.ResponseError(err.Error())
+		}
+
+		if object.IsNeedPromptMfa(organization, user) {
+			// The prompt page needs the user to be signed in
+			c.SetSessionUsername(user.GetId())
+			c.ResponseOk(object.RequiredMfa)
+			return
+		}
+
+		if user.IsMfaEnabled() {
+			c.setMfaUserSession(user.GetId())
+			c.ResponseOk(object.NextMfa, user.GetPreferredMfaProps(true))
+			return
+		}
+
+		resp = c.HandleLoggedIn(application, user, &authForm)
+
+		record := object.NewRecord(c.Ctx)
+		record.Organization = application.Organization
+		record.User = user.Name
+		util.SafeGoroutine(func() { object.AddRecord(record) })
+		
 	} else if authForm.Provider != "" {
 		var application *object.Application
 		if authForm.ClientId != "" {
